@@ -1,4 +1,4 @@
-name: CommandForwardPlus
+name: BungeeKick
 version: '${project.version}'
-main: net.japanpvpserver.commandforwardplus.CommandForwardPlus
+main: net.japanpvpserver.bungeekick.BungeeKick
 author: Elic0de
