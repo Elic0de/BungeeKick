@@ -3,6 +3,8 @@ package net.japanpvpserver.bungeekick;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import com.mrpowergamerbr.temmiewebhook.DiscordEmbed;
+import com.mrpowergamerbr.temmiewebhook.DiscordMessage;
+import com.mrpowergamerbr.temmiewebhook.TemmieWebhook;
 import lombok.Getter;
 import me.leoko.advancedban.Universal;
 import me.leoko.advancedban.bungee.event.PunishmentEvent;
@@ -27,6 +29,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.logging.Level;
 
 public final class BungeeKick extends Plugin implements Listener {
@@ -34,10 +37,16 @@ public final class BungeeKick extends Plugin implements Listener {
     @Getter
     private BungeeKickSettings settings;
 
+    private TemmieWebhook temmie;
+
+
     @Override
     public void onEnable() {
         // Plugin startup logic
         loadConfig();
+
+        temmie = new TemmieWebhook(settings.getUrl());
+
         getProxy().getPluginManager().registerListener(this, this);
     }
 
@@ -63,7 +72,8 @@ public final class BungeeKick extends Plugin implements Listener {
     private void onPunishment(PunishmentEvent event) {
         final Punishment punishment = event.getPunishment();
         final String duration = punishment.getDuration(true).equals("permanent") ? "永久" : punishment.getDuration(true);
-        DiscordEmbed.builder().color(Color.RED.getRGB()).description(String.format("名前: ``%s(%s)``\n理由: %s\n期限: %s", punishment.getName(), punishment.getUuid(), punishment.getReason(), duration));
+
+        Optional.of(temmie).ifPresent(temmieWebhook -> temmieWebhook.sendMessage(DiscordMessage.builder().username("処罰通知").content("").embed(DiscordEmbed.builder().color(Color.RED.getRGB()).description(String.format("名前: ``%s(%s)``\n理由: %s\n期限: %s", punishment.getName(), punishment.getUuid(), punishment.getReason(), duration)).build()).build()));
     }
 
     @EventHandler

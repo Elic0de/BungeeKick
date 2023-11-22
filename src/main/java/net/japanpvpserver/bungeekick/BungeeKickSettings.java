@@ -11,8 +11,14 @@ public class BungeeKickSettings {
 
     @YamlKey("kickToServer")
     @YamlComment("キックされた際に転送するサーバー \nセクションも扱えます")
-    private String serverName = "lobby";
+    private final String serverName = "lobby";
 
     @YamlKey("showKickReason")
-    private boolean showKickReason = true;
+    private final boolean showKickReason = true;
+
+    @YamlKey("webhook")
+    private String url;
+
+    public BungeeKickSettings() {
+    }
 }
