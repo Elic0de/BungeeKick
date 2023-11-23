@@ -5,14 +5,18 @@ import com.google.common.io.ByteStreams;
 import com.mrpowergamerbr.temmiewebhook.DiscordEmbed;
 import com.mrpowergamerbr.temmiewebhook.DiscordMessage;
 import com.mrpowergamerbr.temmiewebhook.TemmieWebhook;
+import com.mrpowergamerbr.temmiewebhook.embed.ThumbnailEmbed;
 import lombok.Getter;
 import me.leoko.advancedban.Universal;
+import me.leoko.advancedban.bungee.BungeeMain;
 import me.leoko.advancedban.bungee.event.PunishmentEvent;
 import me.leoko.advancedban.manager.PunishmentManager;
 import me.leoko.advancedban.manager.TimeManager;
+import me.leoko.advancedban.manager.UUIDManager;
 import me.leoko.advancedban.utils.Punishment;
 import me.leoko.advancedban.utils.PunishmentType;
 import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.PendingConnection;
@@ -21,6 +25,7 @@ import net.md_5.bungee.api.event.LoginEvent;
 import net.md_5.bungee.api.event.ServerKickEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
+import net.md_5.bungee.api.scheduler.TaskScheduler;
 import net.md_5.bungee.event.EventHandler;
 import net.william278.annotaml.Annotaml;
 
@@ -30,50 +35,36 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public final class BungeeKick extends Plugin implements Listener {
 
     @Getter
+    private static BungeeKick instance;
+
+    @Getter
     private BungeeKickSettings settings;
 
+    @Getter
     private TemmieWebhook temmie;
 
 
     @Override
     public void onEnable() {
         // Plugin startup logic
+        instance = this;
         loadConfig();
 
+        if (ProxyServer.getInstance().getPluginManager().getPlugin("AdvancedBan") == null) {
+            throw new RuntimeException("not loaded AdvancedBan plugin");
+        }
         temmie = new TemmieWebhook(settings.getUrl());
 
         getProxy().getPluginManager().registerListener(this, this);
-    }
-
-    @EventHandler
-    private void onLogin(LoginEvent event) {
-        final Punishment punishment = PunishmentManager.get().getBan(event.getConnection().getUniqueId().toString());
-        if (punishment == null) return;
-        for (final String ipAddress : Universal.get().getIps().values()) {
-            if (Objects.equals(ipAddress, event.getConnection().getAddress().getAddress().getHostAddress())) {
-                final PendingConnection connection = event.getConnection();
-                final String name = connection.getName();
-                final String uuid = connection.getUniqueId().toString();
-                final String reason = "Alt Account Automatically detected";
-                final String operation = "Console";
-
-                new Punishment(name, uuid, reason, operation, PunishmentType.BAN, TimeManager.getTime(), -1, null, -1).create();
-                PunishmentManager.get().discard(name);
-            }
-        }
-    }
-
-    @EventHandler
-    private void onPunishment(PunishmentEvent event) {
-        final Punishment punishment = event.getPunishment();
-        final String duration = punishment.getDuration(true).equals("permanent") ? "永久" : punishment.getDuration(true);
-
-        Optional.of(temmie).ifPresent(temmieWebhook -> temmieWebhook.sendMessage(DiscordMessage.builder().username("処罰通知").content("").embed(DiscordEmbed.builder().color(Color.RED.getRGB()).description(String.format("名前: ``%s(%s)``\n理由: %s\n期限: %s", punishment.getName(), punishment.getUuid(), punishment.getReason(), duration)).build()).build()));
+        getProxy().getPluginManager().registerListener(this, new PunishmentListener());
+        getProxy().getPluginManager().registerCommand(this, new BungeeCommand());
     }
 
     @EventHandler
@@ -90,6 +81,10 @@ public final class BungeeKick extends Plugin implements Listener {
             return;
         }
         connectSection(player, name);
+    }
+
+    public void resisterListener() {
+        ProxyServer.getInstance().getPluginManager().registerListener(this, new AutoRestartListener());
     }
 
     private void loadConfig() throws RuntimeException {
